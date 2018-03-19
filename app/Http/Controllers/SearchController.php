@@ -67,7 +67,7 @@ class SearchController extends Controller
             else if( $this->isFinalCategory($categoriesIds[0]) && count($categoriesIds) > 1 ) {  //  Samsung, Asus, Acer
                 // Filters: up - parents
                 $filters = $this->getParentsFilters($categoriesIds);
-                //dd($findCategories, "categories: ", count($categoriesIds), "Parents", $filters);
+                //dd($findCategories, "categories: ", count($categoriesIds), "Parents filters", $filters);
             }
             else if( !$this->isFinalCategory($categoriesIds[0]) && count($categoriesIds) == 1 ) {    // Audi, cars, 
                 // Filters: down - childrens
@@ -210,11 +210,11 @@ class SearchController extends Controller
         foreach ($categories as $oneCat) {
             $res = $this->findCollection->where('id', $oneCat['parent_id'])->first();
             if($res)
-                $variousCats [] = array('id' => $res['id'], 'name' => $res['name']/*, 'parent_id' => $res['parent_id']*/);
-            else {
+                $variousCats [] = array('id' => $oneCat['id'], 'name' => $res['name']);
+            /*else {
                 $item = $this->findCollection->where('id', $oneCat['id'])->first();
-                $variousCats [] = array('id' => $oneCat['id'], 'name' => $item['name']/*, 'parent_id' => $res['parent_id']*/);
-            }
+                $variousCats [] = array('id' => $oneCat['id'], 'name' => $item['name']);
+            }*/
         }
         return $variousCats;
     }
@@ -300,7 +300,7 @@ class SearchController extends Controller
         $mainCat = [];
         foreach ($this->allItems as $headItem) {
             if( preg_match("/\b".$myString."[\W]?\b/ui", $headItem['name']) ) {
-                $mainCat[] = array('id' => $headItem['id'], 'parent_id' => $headItem['parent_id']/*, 'childless' => $headItem['childless']*/);
+                $mainCat[] = array('id' => $headItem['id'], 'parent_id' => $headItem['parent_id']);
             }
         }
         return $mainCat;
