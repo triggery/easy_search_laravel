@@ -8,12 +8,19 @@ use App\Models\Offer;
 
 class PageController extends Controller
 {
+    private $search;
+
+    public function __construct(){
+        $this->search = new SearchController();
+    }
+
     public function index() {
         $CategoryControllerClass = new CategoriesController();
         $mainCategories = $CategoryControllerClass->getMainCategories();
         $offers = Offer::limit(12)->get()->toArray();  // ['id', 'text', 'images']
     	$arrOffers = $this->getOffers($offers);
 
+        //dd($mainCategories);
         return view('main-page', [
             'mainCats' => $mainCategories,
             'offers' => $arrOffers,
@@ -46,4 +53,35 @@ class PageController extends Controller
         }
         return $retOffers;
     } 
+
+    public function getOffersByCategoryID(Request $request) {
+        
+        $breadCrumb = [];
+        $filters = [];
+        $returnOffers = [];
+
+        $res = $this->search->getNameCategoryWithId($request->categoryId);
+        $string = $res['name'];
+
+        $categoryId = [[ "id" => $request->categoryId ]];
+        $final = $this->search->isFinalCategory($categoryId[0]);
+        if($final == true) {
+            $breadCrumb = $this->search->getBreadCrumb($categoryId);
+            $returnOffers = $this->search->getOffersWithImagesByID($categoryId);
+            //dd($returnOffers, $breadCrumb);
+        }
+        else {
+            $breadCrumb = $this->search->getBreadCrumb($categoryId);
+            $filters = $this->search->getChildsFilters($categoryId);
+            $categoriesIds = $filters;
+            //dd($filters);
+        }
+
+        return view('search-page',  [
+            'searchString' => $string,
+            'breadCrumb' => $breadCrumb,
+            'filters' => $filters,
+            'offers' => $returnOffers,
+        ]);        
+    }
 }

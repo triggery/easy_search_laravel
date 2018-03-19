@@ -1,5 +1,11 @@
 @extends('app')
 
+@section('title')
+	@if(isset($searchString))
+		поиск по запросу "{{$searchString}}""
+	@endif
+@endsection
+
 @section('content')
 
 	<div>
@@ -11,9 +17,13 @@
 				@endforeach
 			</ol>
 		</nav>
-		@elseif(count($filters) > 0)
+		@endif
+		
+		@if(count($filters) > 0)
 				@foreach($filters as $batton)
-					<span class="btn btn-primary btn-sm mb-2">{{$batton['name']}}</span>
+					<a href="/get-offers-by-id?categoryId={{$batton['id']}}">
+						<span class="btn btn-primary btn-sm mb-2">{{$batton['name']}}</span>
+					</a>
 				@endforeach
 		@endif
 	</div>

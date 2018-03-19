@@ -57,35 +57,37 @@ class SearchController extends Controller
                 'offers' => $returnOffers,
             ]);
         }
+
         if($countFindCategories == 1) {
-            $id = $findCategories[0];
-            if( $this->isMainCategory($id[0]) ) {                          // cars, food
-                $filters = $this->getChildsFilters($id);
+            $categoriesIds = $findCategories[0];
+            if( $this->isMainCategory($categoriesIds[0]) ) {                          // cars, food
+                $filters = $this->getChildsFilters($categoriesIds);
                 //dd($findCategories, "Main categories: ", $filters);
             }
-            else if( $this->isFinalCategory($id[0]) && count($id) > 1 ) {  //  Samsung, Asus, Acer
+            else if( $this->isFinalCategory($categoriesIds[0]) && count($categoriesIds) > 1 ) {  //  Samsung, Asus, Acer
                 // Filters: up - parents
-                $filters = $this->getParentsFilters($id);
-                //dd($findCategories, "categories: ", count($id), "Parents", $filters);
+                $filters = $this->getParentsFilters($categoriesIds);
+                //dd($findCategories, "categories: ", count($categoriesIds), "Parents", $filters);
             }
-            else if( !$this->isFinalCategory($id[0]) && count($id) == 1 ) {    // Audi, cars, 
+            else if( !$this->isFinalCategory($categoriesIds[0]) && count($categoriesIds) == 1 ) {    // Audi, cars, 
                 // Filters: down - childrens
                 // Здесь должны заполняться обьявления по данным фильтрам категорий
-                $filters = $this->getChildsFilters($id);
-                //dd($findCategories, "categories: ",count($id), "Inter_mediate", $filters);
-                $id = $filters;
+                $filters = $this->getChildsFilters($categoriesIds);
+                //dd($findCategories, "categories: ",count($categoriesIds), "Inter_mediate", $filters);
+                $categoriesIds = $filters;
             }
-            else if( $this->isFinalCategory($id[0]) && count($id) == 1 ) { // A8 
+            else if( $this->isFinalCategory($categoriesIds[0]) && count($categoriesIds) == 1 ) { // A8 
                 // Link
-                $breadCrumb = $this->getBreadCrumb($id);
-                //dd($findCategories, "categories: ", count($id), "Final", $breadCrumb);
+                $breadCrumb = $this->getBreadCrumb($categoriesIds);
+                //dd($findCategories, "categories: ", count($categoriesIds), "Final", $breadCrumb);
             }
         }
-        else if( $countFindCategories > 1 ) {
+        else if( $countFindCategories == 2 ) {
+
             $result = $this->isOneCategoryWordCollocation($searchArray);
             if(!empty($result)) {           // Сначало нужно попробовать найти по сочетанию из 2-х слов в словаре и в БД
-                $id = array_shift($result);
-                $breadCrumb = $this->getBreadCrumb($id);
+                $categoriesIds = array_shift($result);
+                $breadCrumb = $this->getBreadCrumb($categoriesIds);
             }
             else {
                 $exact = $this->exOccurrence($findCategories[0], $findCategories[1]);
@@ -99,32 +101,38 @@ class SearchController extends Controller
 
                     if( !$this->isFinalCategory($word1) && !$this->isFinalCategory($word2) ) {  // "transport cars"
                         $filters = $this->getChildsFilters($findCategories[$this->moreImportant]);
-                        $id = $filters;
-                        //dd("transport cars", $id);
+                        $categoriesIds = $filters;
+                        //dd("transport cars", $categoriesIds);
                     }
                     else if ( !$this->isFinalCategory($exact[0]) ) {  // "bmw cars"
-                        $id = $findCategories[$this->moreImportant]; //$findCategories[0];
-                        $filters = $this->getChildsFilters($id);
-                        //dd("bmw cars", $id, $filters);
+                        $categoriesIds = $findCategories[$this->moreImportant];
+                        $filters = $this->getChildsFilters($categoriesIds);
+                        //dd("bmw cars", $categoriesIds, $filters);
                     }
                     else if ( $this->isFinalCategory($exact[0]) ) {  // "bmw x5"
-                        $id = $exact;
-                        $breadCrumb = $this->getBreadCrumb($id);
+                        $categoriesIds = $exact;
+                        $breadCrumb = $this->getBreadCrumb($categoriesIds);
                     }
                 }
                 else {
                     if( $this->isFinalCategory($findCategories[0][0]) ) {   // Если первое слово - это финальная категория
-                        $id = $findCategories[0];
+                        $categoriesIds = $findCategories[0];
                     }
                     else {
-                        $id = $findCategories[1];
+                        $categoriesIds = $findCategories[1];
                     }
-                    $breadCrumb = $this->getBreadCrumb($id);
+                    $breadCrumb = $this->getBreadCrumb($categoriesIds);
                 }
             }
         }
+        else if($countFindCategories > 2) {
+            $ids = $this->walkInPairs($searchArray);
+            $categoriesIds = $ids[0];
+            $breadCrumb = $this->getBreadCrumb($categoriesIds);
+            //dd($categoriesIds, $breadCrumb);
+        }
 
-        $returnOffers = $this->getOffersWithImagesByID($id);
+        $returnOffers = $this->getOffersWithImagesByID($categoriesIds);
         //dd($returnOffers, "filters: ", $filters, "breadCrumb", $breadCrumb);
         return view('search-page',  [
             'searchString' => $request->string,
@@ -134,7 +142,24 @@ class SearchController extends Controller
         ]);
     }
 
-    private function getOffersWithImagesByID($categoriesIds) {
+    // Найти в парах слов конечную категорию
+    // search string: audi+a6+allroad+green
+    // 0: audi a6
+    // 1: a6 allroad - конечная, "id" => 1341
+    private function walkInPairs($searchArray) {
+        $cnt = count($searchArray);
+        $i = 0;
+        while ($i < $cnt-1) {
+            //echo $i, ": ".$searchArray[$i]." ".$searchArray[$i+1] . '<br>';
+            $testString = [ $searchArray[$i]." ".$searchArray[$i+1] ];
+            $ids = $this->returnFoundWords($testString);
+            if(!empty($ids))
+                return $ids;
+            $i++;
+        }
+    }
+
+    public function getOffersWithImagesByID($categoriesIds) {
         $returnOffers = [];
         foreach ($categoriesIds as $oneCat) {
             $offers = Offer::where('category_id', $oneCat['id'])->limit(48)->get()->toArray();
@@ -160,8 +185,13 @@ class SearchController extends Controller
         return $retOffers;
     }
 
+    public function getNameCategoryWithId($categoryId) {
+        $res = $this->findCollection->where('id', $categoryId)->first();
+        return $res;
+    }
+
     //Если найдена одна категория, возвращаем навигационная цепочку
-    private function getBreadCrumb($categories) {
+    public function getBreadCrumb($categories) {
         $breadCrumb = [];                                      // array('id' => $id, 'name' => $name);
         $category = $categories; // $categories[2];
             if(is_array($category))
@@ -195,7 +225,7 @@ class SearchController extends Controller
         return json_decode($childsArr['children']);
     }
 
-    private function getChildsFilters($categories) {
+    public function getChildsFilters($categories) {
         $variousCats = [];
         foreach ($categories as $oneCat) {
             $childs = $this->getChildsInCategory($oneCat);
@@ -205,6 +235,7 @@ class SearchController extends Controller
                      'id' => $child,
                      'name' => $res['name'],
                      'parent_id' => $res['parent_id'],
+                     'position' => $res['position'],
                 ];
             }
         }
@@ -286,7 +317,7 @@ class SearchController extends Controller
     }
 
     //промежуточная категория или конечная
-    private function isFinalCategory($categoryId) {
+    public function isFinalCategory($categoryId) {
         $res = $this->findCollection->where('id', $categoryId['id'])->first();
         return (!$res['childless']) ? false : true;
     }

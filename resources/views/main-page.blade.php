@@ -5,7 +5,9 @@
 	<div>
 	    @if (count($mainCats) > 0)
 			@foreach($mainCats as $mainCat)					
-				<span class="btn btn-primary btn-sm mb-2">{{ $mainCat['name'] }}</span>							
+				<a href="/get-offers-by-id?categoryId={{$mainCat['id']}}">
+					<span class="btn btn-primary btn-sm mb-2">{{ $mainCat['name'] }}</span>
+				</a>							
 		    @endforeach
 		@endif
 	</div>	

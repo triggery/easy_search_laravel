@@ -18,6 +18,7 @@ Route::get('/media/{filename}', function ($filename) {
 Route::get('/', 'PageController@index')->name('root');
 Route::get('/search-page', 'SearchController@searchApi')->name('search');
 Route::get('/view/{id}', 'PageController@viewOffer');
+Route::get('/get-offers-by-id', 'PageController@getOffersByCategoryID');
 
 Route::get('/contacts', function () {
     return view('contacts');
