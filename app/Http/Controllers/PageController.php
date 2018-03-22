@@ -8,10 +8,12 @@ use App\Models\Offer;
 
 class PageController extends Controller
 {
+    private $currLanguage;
     private $search;
 
     public function __construct(){
         $this->search = new SearchController();
+        $this->currLanguage = "ru";
     }
 
     public function index() {
@@ -20,9 +22,18 @@ class PageController extends Controller
         $offers = Offer::limit(12)->get()->toArray();  // ['id', 'text', 'images']
     	$arrOffers = $this->getOffers($offers);
 
-        //dd($mainCategories);
+        $mainCats = [];
+        foreach ($mainCategories as $key => $oneCat) {
+            $word = $this->getCurrLangWord($oneCat);
+            if(!empty($word))
+                $mainCats[] = [ 'id' => $oneCat['id'], 'name' => $word ];
+            else
+                $mainCats[] = [ 'id' => $oneCat['id'], 'name' => $oneCat['name'] ];
+        }
+
+        //dd($mainCategories); // [ 'id' => , 'name' => , ]
         return view('main-page', [
-            'mainCats' => $mainCategories,
+            'mainCats' => $mainCats,
             'offers' => $arrOffers,
         ]);
     }
@@ -37,6 +48,19 @@ class PageController extends Controller
             'offer' => $oneOffer,
             'image' => array_shift($OfferImages),
         ]);
+    }
+
+    private function getCurrLangWord($wordsArr) {
+        $words = [];
+        $words = json_decode($wordsArr['words']);
+        if(empty($words)) 
+            return [];
+
+        if($this->currLanguage == "ru")
+            $words = $words->ru;
+        else
+            $words = $words->ro;
+        return array_shift($words);
     }
 
     private function getOffers( $offers ) {
@@ -60,8 +84,8 @@ class PageController extends Controller
         $filters = [];
         $returnOffers = [];
 
-        $res = $this->search->getNameCategoryWithId($request->categoryId);
-        $string = $res['name'];
+        /*$res = $this->search->getNameCategoryWithId($request->categoryId);
+        $string = $res['name'];*/
 
         $categoryId = [[ "id" => $request->categoryId ]];
         $final = $this->search->isFinalCategory($categoryId[0]);
@@ -74,11 +98,12 @@ class PageController extends Controller
             $breadCrumb = $this->search->getBreadCrumb($categoryId);
             $filters = $this->search->getChildsFilters($categoryId);
             $categoriesIds = $filters;
+            $returnOffers = $this->search->getOffersWithImagesByID($categoriesIds);
             //dd($filters);
         }
-
+        //dd("offers: ", $returnOffers, "breadCrumb: ",$breadCrumb, "filters: ",$filters);
         return view('search-page',  [
-            'searchString' => $string,
+            //'searchString' => $string,
             'breadCrumb' => $breadCrumb,
             'filters' => $filters,
             'offers' => $returnOffers,

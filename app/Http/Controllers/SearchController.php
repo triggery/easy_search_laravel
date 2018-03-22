@@ -14,6 +14,7 @@ class SearchController extends Controller
     private $findCollection;
 
     private $myActiveLanguages = []; //["ru", "ro"];
+    private $currLanguage;
     private $myDictionary = [];
 
     private $moreImportant;
@@ -27,8 +28,7 @@ class SearchController extends Controller
         $this->initDictionary();
 
         $this->moreImportant = 0;
-
-//        dd($this->myDictionary);
+        $this->currLanguage = "ru";
     }
 
     public function searchApi(Request $request) {
@@ -60,8 +60,9 @@ class SearchController extends Controller
 
         if($countFindCategories == 1) {
             $categoriesIds = $findCategories[0];
-            if( $this->isMainCategory($categoriesIds[0]) ) {                          // cars, food
+            if( $this->isMainCategory($categoriesIds[0]) ) {                          // transport, электроника
                 $filters = $this->getChildsFilters($categoriesIds);
+                $categoriesIds = $filters;
                 //dd($findCategories, "Main categories: ", $filters);
             }
             else if( $this->isFinalCategory($categoriesIds[0]) && count($categoriesIds) > 1 ) {  //  Samsung, Asus, Acer
@@ -200,7 +201,12 @@ class SearchController extends Controller
             while( $id != null ){
                 $res = $this->findCollection->where('id', $id)->first();
                 $id = $res['parent_id'];
-                $breadCrumb [] = array('id' => $res['id'], 'name' => $res['name']/*, 'parent_id' => $res['parent_id']*/);
+                //$breadCrumb [] = [ 'id' => $res['id'], 'name' => $res['name'], 'parent_id' => $res['parent_id'] ];
+                $words = $this->getCurrLangWord($res);
+                if(!empty($words))
+                    $breadCrumb [] = [ 'id' => $res['id'], 'name' => $words, 'parent_id' => $res['parent_id'] ];
+                else
+                    $breadCrumb [] = [ 'id' => $res['id'], 'name' => $res['name'], 'parent_id' => $res['parent_id'] ];
             }
             return(array_reverse($breadCrumb));
     }
@@ -210,7 +216,7 @@ class SearchController extends Controller
         foreach ($categories as $oneCat) {
             $res = $this->findCollection->where('id', $oneCat['parent_id'])->first();
             if($res)
-                $variousCats [] = array('id' => $oneCat['id'], 'name' => $res['name']);
+                $variousCats [] = [ 'id' => $oneCat['id'], 'name' => $res['name'] ];
             /*else {
                 $item = $this->findCollection->where('id', $oneCat['id'])->first();
                 $variousCats [] = array('id' => $oneCat['id'], 'name' => $item['name']);
@@ -220,24 +226,25 @@ class SearchController extends Controller
     }
 
     private function getChildsInCategory($category) {
-        $res = $this->findCollection->where('id', $category['id'])->toArray();
-        $childsArr = array_shift($res);
-        return json_decode($childsArr['children']);
+        $res = $this->findCollection->where('id', $category['id'])->first()->toArray();
+        return json_decode($res['children']);
     }
 
     public function getChildsFilters($categories) {
+        if(is_array($categories))
+            $oneCat = array_shift($categories);
+
         $variousCats = [];
-        foreach ($categories as $oneCat) {
-            $childs = $this->getChildsInCategory($oneCat);
-            foreach ($childs as $child) {
-                $res = $this->findCollection->where('id', $child)->first();
-                $variousCats [] = [
-                     'id' => $child,
-                     'name' => $res['name'],
-                     'parent_id' => $res['parent_id'],
-                     'position' => $res['position'],
-                ];
-            }
+        $childs = $this->getChildsInCategory($oneCat);
+        $finds = Category::find($childs)->toArray();
+
+        foreach ($finds as $find) {
+            $words = $this->getCurrLangWord($find);
+            $variousCats [] = [
+                 'id' => $find['id'],
+                 'parent_id' => $find['parent_id'],
+                 'name' => empty($words) ? $find['name'] : $words, 
+            ];
         }
         return $variousCats;
     }
@@ -357,5 +364,45 @@ class SearchController extends Controller
     private function isOneCategoryWordCollocation($searchArray) {
         $testString = [ $searchArray[0]." ".$searchArray[1] ];
         return $this->returnFoundWords($testString);
+    }
+
+    private function getCurrLangWord($wordsArr) {
+        $words = [];
+        $words = json_decode($wordsArr['words']);
+        if(empty($words)) 
+            return [];
+
+        if($this->currLanguage == "ru")
+            $words = $words->ru;
+        else
+            $words = $words->ro;
+        return array_shift($words);
+    }
+
+    public function testFunc($id) {
+        $res = $this->findCollection->where('id', $id)->first();
+        $words = json_decode($res['words']);
+        if($this->currLanguage == "ru")
+            $words = $words->ru;
+        else
+            $words = $words->ro;
+        dd($words);
+    }
+
+    public function testSubcat() {
+        $variousCats = [];
+        $childs = $this->getChildsInCategory(["id" => 754]);
+        $find = Category::find($childs)->toArray();
+        $i = 0;
+        while( isset($find[$i]) ) {
+            $words = $this->getCurrLangWord($find[$i]);
+            $variousCats [] = [
+                 'id' => $find[$i]['id'],
+                 'parent_id' => $find[$i]['parent_id'],
+                 'name' => empty($words) ? $find[$i]['name'] : $words,
+            ];                
+            $i++;
+        }
+        dd($variousCats);
     }
 }

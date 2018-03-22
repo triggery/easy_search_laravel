@@ -13,7 +13,7 @@
 		<nav aria-label="breadcrumb">
 			<ol class="breadcrumb">
 				@foreach($breadCrumb as $link)
-					<li class="breadcrumb-item"><a href="/search-page?string={{$link['name']}}">{{$link['name']}}</a></li>
+					<li class="breadcrumb-item"><a href="get-offers-by-id?categoryId={{$link['id']}}">{{$link['name']}}</a></li>
 				@endforeach
 			</ol>
 		</nav>
