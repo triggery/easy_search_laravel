@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Support\Facades\Redis;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use App\Models\Category;
@@ -28,7 +29,7 @@ class SearchController extends Controller
         $this->initDictionary();
 
         $this->moreImportant = 0;
-        $this->currLanguage = "ru";
+        $this->currLanguage = Redis::get('currLanguage');   //"ru";
     }
 
     public function searchApi(Request $request) {
@@ -55,6 +56,7 @@ class SearchController extends Controller
                 'breadCrumb' => $breadCrumb,
                 'filters' => $filters,
                 'offers' => $returnOffers,
+                'lang' => $this->currLanguage,
             ]);
         }
 
@@ -140,6 +142,7 @@ class SearchController extends Controller
             'breadCrumb' => $breadCrumb,
             'filters' => $filters,
             'offers' => $returnOffers,
+            'lang' => $this->currLanguage,
         ]);
     }
 
@@ -165,18 +168,17 @@ class SearchController extends Controller
         foreach ($categoriesIds as $oneCat) {
             $offers = Offer::where('category_id', $oneCat['id'])->limit(48)->get()->toArray();
             if(!empty($offers)) {
-                $offersWithImg = $this->getOffersWithImages($offers);
+                $offersWithImg = $this->replaceImagePathInOffers($offers);
                 $returnOffers = array_merge($returnOffers, $offersWithImg);
             }
         }
         return $returnOffers;
     }
 
-    private function getOffersWithImages( $offers ) {
+    private function replaceImagePathInOffers( $offers ) {
         $retOffers = [];
         foreach ($offers as $oneOffer) {
             $one = str_replace('media', 'storage/images', json_decode($oneOffer['images']));
-
             $retOffers[] = array('id' => $oneOffer['id'], 
                                 'text' => $oneOffer['text'], 
                                 'images' => array_shift($one), 
@@ -193,34 +195,27 @@ class SearchController extends Controller
 
     //Если найдена одна категория, возвращаем навигационная цепочку
     public function getBreadCrumb($categories) {
-        $breadCrumb = [];                                      // array('id' => $id, 'name' => $name);
-        $category = $categories; // $categories[2];
-            if(is_array($category))
-                $category = array_shift($category);
-            $id = $category['id'];
-            while( $id != null ){
-                $res = $this->findCollection->where('id', $id)->first();
-                $id = $res['parent_id'];
-                //$breadCrumb [] = [ 'id' => $res['id'], 'name' => $res['name'], 'parent_id' => $res['parent_id'] ];
-                $words = $this->getCurrLangWord($res);
-                if(!empty($words))
-                    $breadCrumb [] = [ 'id' => $res['id'], 'name' => $words, 'parent_id' => $res['parent_id'] ];
-                else
-                    $breadCrumb [] = [ 'id' => $res['id'], 'name' => $res['name'], 'parent_id' => $res['parent_id'] ];
-            }
-            return(array_reverse($breadCrumb));
+        $breadCrumb = [];
+        $category = $categories;
+        if( is_array($category) )
+            $category = array_shift($category);
+        $id = $category['id'];
+        while( $id != null ){
+            $res = $this->findCollection->where('id', $id)->first();
+            $id = $res['parent_id'];
+            $word = $this->getCurrLangWord($res);
+            $breadCrumb [] = [ 'id' => $res['id'], 'name' => empty($word) ? $res['name'] : $word, 'parent_id' => $res['parent_id'] ];
+        }
+        return(array_reverse($breadCrumb));
     }
 
     private function getParentsFilters($categories) {
         $variousCats = [];
-        foreach ($categories as $oneCat) {
-            $res = $this->findCollection->where('id', $oneCat['parent_id'])->first();
-            if($res)
-                $variousCats [] = [ 'id' => $oneCat['id'], 'name' => $res['name'] ];
-            /*else {
-                $item = $this->findCollection->where('id', $oneCat['id'])->first();
-                $variousCats [] = array('id' => $oneCat['id'], 'name' => $item['name']);
-            }*/
+        $parents_id = array_column($categories, 'parent_id');
+        $filtersCategories = $this->findCollection->find($parents_id)->toArray();
+        foreach ($filtersCategories as $filter) {
+            $word = $this->getCurrLangWord($filter);
+            $variousCats [] = [ 'id' => $filter['id'], 'name' => empty($word) ? $filter['name'] : $word ];
         }
         return $variousCats;
     }

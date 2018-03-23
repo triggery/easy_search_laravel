@@ -31,6 +31,23 @@
                     <a class="nav-link disabled" href="/contacts">Контакты</a>
                 </li>
             </ul>
+            <ul class="navbar-nav mt-2 mt-lg-0">
+                @if ($lang == "ru")
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/set-lang/ru">ru</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link disabled" href="/set-lang/ro">/ ro</a>
+                    </li>
+                @else
+                    <li class="nav-item">
+                        <a class="nav-link disabled" href="/set-lang/ru">ru /</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/set-lang/ro"> ro</a>
+                    </li>
+                @endif
+            </ul>
         </div>
         <form class="form-inline my-2 my-lg-0" action="/search-page" method="GET" >
             <input class="form-control mr-sm-2" type="search" name="string" placeholder="например: BMW X5">

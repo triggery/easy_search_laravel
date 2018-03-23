@@ -2,40 +2,57 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Redis;
 use Illuminate\Http\Request;
 use App\Models\Category;
 use App\Models\Offer;
 
 class PageController extends Controller
 {
+    private $availableLangugages;
     private $currLanguage;
     private $search;
 
     public function __construct(){
         $this->search = new SearchController();
-        $this->currLanguage = "ru";
+        $this->currLanguage = Redis::get('currLanguage');   //"ru";
+        //Redis::set('currLanguage', $this->currLanguage);
     }
 
     public function index() {
+
+        //$lang = Redis::get('currLanguage');
+        //dd($lang);
+
         $CategoryControllerClass = new CategoriesController();
         $mainCategories = $CategoryControllerClass->getMainCategories();
         $offers = Offer::limit(12)->get()->toArray();  // ['id', 'text', 'images']
-    	$arrOffers = $this->getOffers($offers);
+    	$arrOffers = $this->replaceImagePathInOffers($offers);
 
         $mainCats = [];
-        foreach ($mainCategories as $key => $oneCat) {
+        foreach ($mainCategories as $oneCat) {
             $word = $this->getCurrLangWord($oneCat);
-            if(!empty($word))
-                $mainCats[] = [ 'id' => $oneCat['id'], 'name' => $word ];
-            else
-                $mainCats[] = [ 'id' => $oneCat['id'], 'name' => $oneCat['name'] ];
+            $mainCats[] = [ 'id' => $oneCat['id'], 'name' => empty($word) ? $oneCat['name'] : $word ];
         }
 
         //dd($mainCategories); // [ 'id' => , 'name' => , ]
         return view('main-page', [
             'mainCats' => $mainCats,
             'offers' => $arrOffers,
+            'lang' => $this->currLanguage,
         ]);
+    }
+
+    public function setLang(Request $request, $lang) {
+
+        Redis::set('currLanguage', $lang);
+        $this->currLanguage = $lang;
+
+        /*$path  = \Request::route()->getName();
+        dd($path);*/
+
+        return redirect()->route('root');
     }
 
     public function viewOffer($id) {  
@@ -47,6 +64,7 @@ class PageController extends Controller
         return view('viewOffer',  [
             'offer' => $oneOffer,
             'image' => array_shift($OfferImages),
+            'lang' => $this->currLanguage,
         ]);
     }
 
@@ -63,12 +81,10 @@ class PageController extends Controller
         return array_shift($words);
     }
 
-    private function getOffers( $offers ) {
+    private function replaceImagePathInOffers( $offers ) {
         $retOffers = [];
-
         foreach ($offers as $oneOffer) {
             $one = str_replace('media', 'storage/images', json_decode($oneOffer['images']));
-
             $retOffers[] = array('id' => $oneOffer['id'], 
                                 'text' => $oneOffer['text'], 
                                 'images' => array_shift($one), 
@@ -83,9 +99,6 @@ class PageController extends Controller
         $breadCrumb = [];
         $filters = [];
         $returnOffers = [];
-
-        /*$res = $this->search->getNameCategoryWithId($request->categoryId);
-        $string = $res['name'];*/
 
         $categoryId = [[ "id" => $request->categoryId ]];
         $final = $this->search->isFinalCategory($categoryId[0]);
@@ -107,6 +120,7 @@ class PageController extends Controller
             'breadCrumb' => $breadCrumb,
             'filters' => $filters,
             'offers' => $returnOffers,
+            'lang' => $this->currLanguage,
         ]);        
     }
 }
